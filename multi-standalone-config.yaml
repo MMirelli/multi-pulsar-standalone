@@ -1,0 +1,17 @@
+clusters:
+  - name: cluster-a
+    broker:
+      servicePort: 6650
+      webPort: 8080
+    bookkeeper:
+      port: 3181
+    zookeeper:
+      port: 2181
+  - name: cluster-b
+    broker:
+      servicePort: 6660
+      webPort: 8090
+    bookkeeper:
+      port: 3182
+    zookeeper:
+      port: 2191
