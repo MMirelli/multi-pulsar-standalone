@@ -1,9 +1,9 @@
 #!/bin/bash
 PULSAR_HOME=$(dirname $(realpath $0))
 MULTI_STANDALONE_CONFIG=$PULSAR_HOME/multi-standalone-config.yaml
-
+echo $PULSAR_HOME
 if [[ "$OSTYPE" == "darwin"* ]]; then
-    mac_os_deps=("gnu-sed")
+    mac_os_deps=("gnu-sed" "grep")
     if ! type -P brew &>/dev/null; then
         echo "On MacOSX, you must install gnu binaries with the following command:"
         echo "brew install" "${mac_os_deps[@]}"
@@ -45,35 +45,63 @@ function exit_if_config_not_found(){
         exit 1
 }
 
+function exit_if_unsupported_pulsar_version(){
+    ${PULSAR_HOME}/bin/pulsar version
+    if [[ $(${PULSAR_HOME}/bin/pulsar version | grep -c '2.10') -ne 1 && \
+              $(${PULSAR_HOME}/bin/pulsar version | grep -c '2.11') -ne 1 ]] ; then
+        echo "Only supported pulsar versions are 2.10 and 2.11"
+        exit 1
+    fi
+}
+
 function startup_multi_standalone(){
     exit_if_config_not_found
-    
+    exit_if_unsupported_pulsar_version
+       
     mode="${1:-noclean}"
     local cur_sa_data_dir=""
     local cur_sa_config=""
     local cur_sa_bk_port=""
     local cur_sa_broker_port=""
-    local cur_sa_log_file=""
+    local cur_sa_s4k_port=""
+    local cur_sa_s4k_schema_registry_port=""
 
-    if [[ ! -h ${PULSAR_HOME}/conf/standalone.conf ]]; then
-        mv "${PULSAR_HOME}/conf/standalone.conf" "${PULSAR_HOME}/conf/standalone-default.conf"
-    fi  
+    # if [[ ! -h ${PULSAR_HOME}/conf/standalone.conf ]]; then
+    #     mv "${PULSAR_HOME}/conf/standalone.conf" "${PULSAR_HOME}/conf/standalone-default.conf"
+    # fi  
     
     for cluster_name in $(yq e '.clusters[].name' ${MULTI_STANDALONE_CONFIG}); do
         cur_sa_data_dir="${PULSAR_HOME}/data-${cluster_name}"
         cur_sa_config="${PULSAR_HOME}/conf/standalone-${cluster_name}.conf"
         
-        cp "${PULSAR_HOME}/conf/standalone-default.conf" "${cur_sa_config}"
+        # cp "${PULSAR_HOME}/conf/standalone-default.conf" "${cur_sa_config}"
+        cp "${PULSAR_HOME}/conf/standalone.conf" "${cur_sa_config}"
         
         cur_sa_broker_port=$(clusterName=${cluster_name} \
-                         yq e '.clusters[] | select(.name == env(clusterName)) | .broker.servicePort' ${MULTI_STANDALONE_CONFIG})
+                                        yq e '.clusters[] | select(.name == env(clusterName)) | .broker.servicePort' ${MULTI_STANDALONE_CONFIG})
         cur_sa_web_port=$(clusterName=${cluster_name} \
-                         yq e '.clusters[] | select(.name == env(clusterName)) | .broker.webPort' ${MULTI_STANDALONE_CONFIG})
-        
+                                     yq e '.clusters[] | select(.name == env(clusterName)) | .broker.webPort' ${MULTI_STANDALONE_CONFIG})
+        cur_sa_s4k_port=$(clusterName=${cluster_name} \
+                                     yq e '.clusters[] | select(.name == env(clusterName)) | .s4k.servicePort' ${MULTI_STANDALONE_CONFIG})
+        cur_sa_s4k_schema_registry_port=$(clusterName=${cluster_name} \
+                                     yq e '.clusters[] | select(.name == env(clusterName)) | .s4k.schemaRegistryPort' ${MULTI_STANDALONE_CONFIG})
+
+        echo "Add following properties to ${cur_sa_config}"
+        echo "brokerServicePort=${cur_sa_broker_port}"
         sed -i "s/brokerServicePort=6650/brokerServicePort=${cur_sa_broker_port}/g" "${cur_sa_config}"
+        echo "webServicePort=${cur_sa_web_port}"
         sed -i "s/webServicePort=8080/webServicePort=${cur_sa_web_port}/g" "${cur_sa_config}"
-        rm "${PULSAR_HOME}/conf/standalone.conf"
-        ln -s "${cur_sa_config}" "${PULSAR_HOME}/conf/standalone.conf"
+        echo "clusterName=${cluster_name}"
+        sed -i "s/clusterName=standalone/clusterName=${cluster_name}/g" "${cur_sa_config}"
+        
+        cat << EOF | tee -a "${cur_sa_config}"
+kafkaListeners=SASL_PLAINTEXT://127.0.0.1:${cur_sa_s4k_port}
+kafkaAdvertisedListeners=SASL_PLAINTEXT://127.0.0.1:${cur_sa_s4k_port}
+kopSchemaRegistryPort=${cur_sa_s4k_schema_registry_port}
+EOF
+
+        # rm "${PULSAR_HOME}/conf/standalone.conf"
+        # ln -s "${cur_sa_config}" "${PULSAR_HOME}/conf/standalone.conf"
         
         if [[ "$mode" == "clean" ]]; then
             rm -rf "$cur_sa_data_dir"
@@ -83,10 +111,8 @@ function startup_multi_standalone(){
         cur_sa_bk_port=$(clusterName=${cluster_name} \
                                     yq e '.clusters[] | select(.name == env(clusterName)) | .bookkeeper.port' ${MULTI_STANDALONE_CONFIG})
         
-        cur_sa_log_file="/tmp/${cluster_name}-standalone-$(date +%s).log"
-        echo "Starting \"$cluster_name\" standalone cluster with the following settings: "
-        clusterName=${cluster_name} yq e '.clusters[] | select(.name == env(clusterName))' ${MULTI_STANDALONE_CONFIG}
-        echo "Storing cluster logs in ${cur_sa_log_file}"
+        # echo "Starting \"$cluster_name\" standalone cluster with the following settings: "
+        # clusterName=${cluster_name} yq e '.clusters[] | select(.name == env(clusterName))' ${MULTI_STANDALONE_CONFIG}
 
         local standalone_version_flags=""
         cur_sa_zk_port=$(clusterName=${cluster_name} yq e '.clusters[] | select(.name == env(clusterName)) | .zookeeper.port' ${MULTI_STANDALONE_CONFIG})
@@ -94,18 +120,18 @@ function startup_multi_standalone(){
             standalone_version_flags="--zookeeper-port ${cur_sa_zk_port} --zookeeper-dir ${cur_sa_data_dir}/standalone/zookeeper"
         elif [[ $(${PULSAR_HOME}/bin/pulsar version | grep -c '2.11') -eq 1  ]]; then
             standalone_version_flags="--metadata-dir ${cur_sa_data_dir}"
-        else
-            echo "Pulsar version not supported (only 2.10 and 2.11 are supported)"
-            exit 1
         fi
-        
-        set -x
-        ${PULSAR_HOME}/bin/pulsar standalone -nss -nfw --wipe-data \
-                      --bookkeeper-dir "${cur_sa_data_dir}/standalone/bookkeeper" \
-                      --bookkeeper-port "${cur_sa_bk_port}" \
-                      "${standalone_version_flags}" \
-                      "$@" > "${cur_sa_log_file}" 2>&1 &
-        set +x
-        sleep 10
+        echo "#========================================#"
+        echo "#Run the following command to start standalone ${cluster_name}#"
+        echo "#========================================#"
+        cat << EOF
+PULSAR_STANDALONE_CONF=${cur_sa_config} \\
+  ${PULSAR_HOME}/bin/pulsar standalone -nss -nfw --wipe-data \\
+  --bookkeeper-dir "${cur_sa_data_dir}/standalone/bookkeeper" \\
+  --bookkeeper-port "${cur_sa_bk_port}" \\
+  "${standalone_version_flags}" \\
+  "$@"
+EOF
+        echo "#========================================#"
     done
 }

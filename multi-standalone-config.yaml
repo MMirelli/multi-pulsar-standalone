@@ -7,6 +7,9 @@ clusters:
       port: 3181
     zookeeper:
       port: 2181
+    s4k:
+      servicePort: 9092
+      schemaRegistryPort: 8001
   - name: cluster-b
     broker:
       servicePort: 6660
@@ -15,3 +18,6 @@ clusters:
       port: 3182
     zookeeper:
       port: 2191
+    s4k:
+      servicePort: 9094
+      schemaRegistryPort: 8002
