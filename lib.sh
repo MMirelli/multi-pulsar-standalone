@@ -72,7 +72,7 @@ function startup_multi_standalone(){
     
     for cluster_name in $(yq e '.clusters[].name' ${MULTI_STANDALONE_CONFIG}); do
         cur_sa_data_dir="${PULSAR_HOME}/data-${cluster_name}"
-        cur_sa_config="${PULSAR_HOME}/conf/standalone-${cluster_name}.conf"
+        cur_sa_config="${PULSAR_HOME}/conf/${cluster_name}-standalone.conf"
         
         # cp "${PULSAR_HOME}/conf/standalone-default.conf" "${cur_sa_config}"
         cp "${PULSAR_HOME}/conf/standalone.conf" "${cur_sa_config}"
