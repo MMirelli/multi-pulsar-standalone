@@ -121,17 +121,20 @@ EOF
         elif [[ $(${PULSAR_HOME}/bin/pulsar version | grep -c '2.11') -eq 1  ]]; then
             standalone_version_flags="--metadata-dir ${cur_sa_data_dir}"
         fi
-        echo "#========================================#"
-        echo "#Run the following command to start standalone ${cluster_name}#"
-        echo "#========================================#"
-        cat << EOF
+        cat << EOF > ${PULSAR_HOME}/start_${cluster_name}_standalone.sh
+#!/bin/bash
 PULSAR_STANDALONE_CONF=${cur_sa_config} \\
   ${PULSAR_HOME}/bin/pulsar standalone -nss -nfw --wipe-data \\
   --bookkeeper-dir "${cur_sa_data_dir}/standalone/bookkeeper" \\
   --bookkeeper-port "${cur_sa_bk_port}" \\
   "${standalone_version_flags}" \\
-  "$@"
+  "\$@"
 EOF
+        chmod +x ${PULSAR_HOME}/start_${cluster_name}_standalone.sh
+        echo "#========================================#"
+        echo "#Run the following command to start standalone ${cluster_name}#"
+        echo "#========================================#"
+        echo  ${PULSAR_HOME}/start_${cluster_name}_standalone.sh
         echo "#========================================#"
     done
 }
