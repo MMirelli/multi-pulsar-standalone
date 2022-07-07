@@ -123,12 +123,19 @@ EOF
         fi
         cat << EOF > ${PULSAR_HOME}/start_${cluster_name}_standalone.sh
 #!/bin/bash
+: \${MODE:=wipe}
+additional_params=""
+if [[ \$MODE == wipe ]]; then
+    additional_params="--wipe-data"
+fi
+set -x
 PULSAR_STANDALONE_CONF=${cur_sa_config} \\
-  ${PULSAR_HOME}/bin/pulsar standalone -nss -nfw --wipe-data \\
+  ${PULSAR_HOME}/bin/pulsar standalone -nss -nfw \${additional_params} \\
   --bookkeeper-dir "${cur_sa_data_dir}/standalone/bookkeeper" \\
   --bookkeeper-port "${cur_sa_bk_port}" \\
   "${standalone_version_flags}" \\
   "\$@"
+set +x
 EOF
         chmod +x ${PULSAR_HOME}/start_${cluster_name}_standalone.sh
         echo "#========================================#"
