@@ -1,5 +1,5 @@
 #!/bin/bash
-PULSAR_HOME=$(dirname $(realpath $0))
+: ${PULSAR_HOME="$(dirname $(realpath $0))/apache-pulsar-*"}
 MULTI_STANDALONE_CONFIG=$PULSAR_HOME/multi-standalone-config.yaml
 echo $PULSAR_HOME
 if [[ "$OSTYPE" == "darwin"* ]]; then
