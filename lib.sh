@@ -40,7 +40,8 @@ function check_app() {
 check_app yq 1
 
 function exit_if_config_not_found(){
-    [[ ! -f $MULTI_STANDALONE_CONFIG ]] && \
+    echo "DEBUG: MULTI_STANDALONE_CONFIG=$MULTI_STANDALONE_CONFIG"
+    [[ ! $(ls $MULTI_STANDALONE_CONFIG) ]] && \
         echo "multi-standalone-config.yaml not found in $PULSAR_HOME, please provide configuration file." && \
         exit 1
 }
@@ -57,7 +58,7 @@ function exit_if_unsupported_pulsar_version(){
 function startup_multi_standalone(){
     exit_if_config_not_found
     exit_if_unsupported_pulsar_version
-       
+    
     mode="${1:-noclean}"
     local cur_sa_data_dir=""
     local cur_sa_config=""
@@ -84,7 +85,8 @@ function startup_multi_standalone(){
         cur_sa_s4k_port=$(clusterName=${cluster_name} \
                                      yq e '.clusters[] | select(.name == env(clusterName)) | .s4k.servicePort' ${MULTI_STANDALONE_CONFIG})
         cur_sa_s4k_schema_registry_port=$(clusterName=${cluster_name} \
-                                     yq e '.clusters[] | select(.name == env(clusterName)) | .s4k.schemaRegistryPort' ${MULTI_STANDALONE_CONFIG})
+                                                     yq e '.clusters[] | select(.name == env(clusterName)) | .s4k.schemaRegistryPort' ${MULTI_STANDALONE_CONFIG})
+        
 
         echo "Add following properties to ${cur_sa_config}"
         echo "brokerServicePort=${cur_sa_broker_port}"
