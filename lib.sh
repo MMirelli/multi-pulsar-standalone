@@ -99,6 +99,7 @@ function startup_multi_standalone(){
         cat << EOF | tee -a "${cur_sa_config}"
 kafkaListeners=SASL_PLAINTEXT://127.0.0.1:${cur_sa_s4k_port}
 kafkaAdvertisedListeners=SASL_PLAINTEXT://127.0.0.1:${cur_sa_s4k_port}
+kafkaListeners=SASL_PLAINTEXT://0.0.0.0:${cur_sa_s4k_port}
 kopSchemaRegistryPort=${cur_sa_s4k_schema_registry_port}
 EOF
 
