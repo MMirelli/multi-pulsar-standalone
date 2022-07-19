@@ -123,7 +123,7 @@ EOF
         fi
         cat << EOF > ${PULSAR_HOME}/start_${cluster_name}_standalone.sh
 #!/bin/bash
-: \${MODE:=wipe}
+: \${MODE:=nowipe}
 additional_params=""
 if [[ \$MODE == wipe ]]; then
     additional_params="--wipe-data"
